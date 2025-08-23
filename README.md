@@ -1,6 +1,6 @@
 # Tool Collection Repository
 
-## English
+## License
 This repository is a collection of various tools.
 All contents are released under **The Unlicense**, meaning you are free to use, modify, distribute, and share them without restriction.  
 No warranty is provided, so please use at your own responsibility.
@@ -10,7 +10,7 @@ No warranty is provided, so please use at your own responsibility.
 
 ---
 
-## 日本語
+## ライセンス
 このリポジトリは、さまざまなツールをまとめたものです。  
 内容はすべて **The Unlicense** の下で公開されており、利用・改変・配布・共有を自由に行うことができます。  
 ただし、無保証ですので自己責任でご利用ください。
