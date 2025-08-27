@@ -1,0 +1,462 @@
+"""
+异步业务处理 Textual UI 演示
+
+这个应用展示了如何在 Textual UI 中处理长时间运行的业务逻辑：
+- 使用 TextArea 显示实时日志
+- 通过回调函数更新 UI
+- 支持开始/停止业务处理
+- 模拟 IO 密集型操作
+"""
+
+import asyncio
+import time
+from datetime import datetime
+from typing import Callable, Optional
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
+from textual.widgets import Header, Footer, Button, TextArea, Static, ProgressBar
+from textual.worker import Worker, get_current_worker
+from textual import log
+import random
+
+class BusinessProcessor:
+    """
+    业务处理类
+    
+    模拟一个需要长时间运行的业务处理器，包含：
+    - IO 密集型操作（使用 sleep 模拟）
+    - 回调机制来更新 UI
+    - 可中断的处理流程
+    """
+    
+    def __init__(self):
+        self.is_running = False
+        self.log_callback: Optional[Callable[[str], None]] = None
+        self.progress_callback: Optional[Callable[[int], None]] = None
+        self.total_tasks = 10
+        self.current_task = 0
+    
+    def set_log_callback(self, callback: Callable[[str], None]) -> None:
+        """
+        设置日志回调函数
+        
+        Args:
+            callback: 接收日志消息的回调函数
+        """
+        self.log_callback = callback
+    
+    def set_progress_callback(self, callback: Callable[[int], None]) -> None:
+        """
+        设置进度回调函数
+        
+        Args:
+            callback: 接收进度百分比的回调函数
+        """
+        self.progress_callback = callback
+    
+    def _log(self, message: str) -> None:
+        """
+        内部日志方法，通过回调函数发送日志到 UI
+        
+        Args:
+            message: 日志消息
+        """
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        full_message = f"[{timestamp}] {message}"
+        
+        if self.log_callback:
+            self.log_callback(full_message)
+    
+    def _update_progress(self, current: int) -> None:
+        """
+        更新处理进度
+        
+        Args:
+            current: 当前完成的任务数
+        """
+        progress = int((current / self.total_tasks) * 100)
+        if self.progress_callback:
+            self.progress_callback(progress)
+    
+    async def start_processing(self) -> None:
+        """
+        开始业务处理流程
+        
+        这是主要的业务函数，模拟一系列需要时间的操作：
+        1. 数据预处理
+        2. 批量任务处理
+        3. 结果汇总
+        
+        使用 asyncio.sleep 模拟 IO 操作，保持 UI 响应性
+        """
+        if self.is_running:
+            self._log("❌ 业务处理已在运行中，请先停止当前任务")
+            return
+        
+        try:
+            self.is_running = True
+            self.current_task = 0
+            
+            self._log("🚀 开始业务处理流程")
+            
+            # 阶段 1: 初始化和预处理
+            self._log("📋 阶段 1: 数据预处理...")
+            await asyncio.sleep(1.5)  # 模拟数据加载时间
+            
+            if not self.is_running:
+                self._log("⏸️  业务处理被用户中断")
+                return
+            
+            self._log("✅ 数据预处理完成")
+            
+            # 阶段 2: 批量任务处理
+            self._log(f"⚙️  阶段 2: 开始处理 {self.total_tasks} 个任务...")
+            
+            for i in range(self.total_tasks):
+                if not self.is_running:
+                    self._log("⏸️  业务处理被用户中断")
+                    return
+                
+                # 模拟每个任务的处理时间（随机 0.5-2 秒）
+                task_duration = random.uniform(0.5, 2.0)
+                task_name = f"任务-{i+1:02d}"
+                
+                self._log(f"🔄 正在处理 {task_name} (预计耗时: {task_duration:.1f}s)")
+                
+                # 模拟 IO 密集型操作
+                await asyncio.sleep(task_duration)
+                
+                # 模拟偶发的错误情况
+                if random.random() < 0.1:  # 10% 概率出现警告
+                    self._log(f"⚠️  {task_name} 处理时出现警告，但继续执行")
+                else:
+                    self._log(f"✅ {task_name} 处理完成")
+                
+                self.current_task = i + 1
+                self._update_progress(self.current_task)
+                
+                # 给 UI 更新的机会
+                await asyncio.sleep(0.1)
+            
+            if not self.is_running:
+                self._log("⏸️  业务处理被用户中断")
+                return
+            
+            # 阶段 3: 结果汇总
+            self._log("📊 阶段 3: 结果汇总中...")
+            await asyncio.sleep(1.0)  # 模拟汇总时间
+            
+            if not self.is_running:
+                self._log("⏸️  业务处理被用户中断")
+                return
+            
+            # 生成处理报告
+            success_rate = random.uniform(85, 98)
+            total_time = sum(random.uniform(0.5, 2.0) for _ in range(self.total_tasks)) + 3.5
+            
+            self._log("=" * 50)
+            self._log("📋 业务处理完成报告:")
+            self._log(f"   • 总任务数: {self.total_tasks}")
+            self._log(f"   • 成功率: {success_rate:.1f}%")
+            self._log(f"   • 总耗时: {total_time:.1f} 秒")
+            self._log(f"   • 平均每任务耗时: {total_time/self.total_tasks:.2f} 秒")
+            self._log("=" * 50)
+            self._log("🎉 所有业务处理已成功完成！")
+            
+        except asyncio.CancelledError:
+            self._log("❌ 业务处理被强制取消")
+        except Exception as e:
+            self._log(f"💥 业务处理发生异常: {str(e)}")
+        finally:
+            self.is_running = False
+            self._update_progress(0)  # 重置进度条
+    
+    def stop_processing(self) -> None:
+        """
+        停止业务处理
+        
+        设置停止标志，业务循环会检查此标志并优雅退出
+        """
+        if self.is_running:
+            self._log("🛑 收到停止信号，正在优雅退出...")
+            self.is_running = False
+        else:
+            self._log("ℹ️  当前没有运行中的业务处理")
+
+class AsyncBusinessApp(App):
+    """
+    异步业务处理 Textual 应用
+    
+    这个应用展示了如何在 Textual 中处理长时间运行的异步任务：
+    - 实时日志显示
+    - 进度条更新
+    - 开始/停止控制
+    - 非阻塞 UI 交互
+    """
+    
+    CSS = """
+    .main-container {
+        height: 100%;
+        margin: 1;
+    }
+    
+    .log-container {
+        border: solid $accent;
+        padding: 1;
+        margin-bottom: 1;
+        height: 50%;
+        
+    }
+    
+    .controls-container {
+        border: solid $primary;
+        padding: 1;
+        height: 50%;
+    }
+    
+    .progress-container {
+        margin: 1 0;
+    }
+    
+    .status-text {
+        text-align: center;
+        margin: 1 0;
+    }
+    
+    .button-group {
+        height: auto;
+        align: center middle;
+    }
+    
+    #log-area {
+        height: 60%;
+        min-height: 12;
+        background: $surface;
+    }
+    
+    #start-button {
+        margin: 0 1;
+        min-width: 12;
+    }
+    
+    #stop-button {
+        margin: 0 1;
+        min-width: 12;
+    }
+    
+    #progress-bar {
+        margin: 1 0;
+    }
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.business_processor = BusinessProcessor()
+        self.current_worker: Optional[Worker] = None
+        
+        # 设置业务处理器的回调函数
+        self.business_processor.set_log_callback(self.add_log)
+        self.business_processor.set_progress_callback(self.update_progress)
+    
+    def compose(self) -> ComposeResult:
+        """构建用户界面"""
+        
+        yield Header(show_clock=True)
+        
+        with Container(classes="main-container"):
+            # 日志显示区域 - 占用更大空间
+            with Container(classes="log-container"):
+                yield Static("📋 业务处理日志", classes="status-text")
+                yield TextArea(
+                    "=== 业务处理系统就绪 ===\n"
+                    "点击\"开始处理\"按钮开始业务流程\n"
+                    "日志将在此处实时显示...\n"
+                    "\n"
+                    "💡 提示信息:\n"
+                    "- 业务处理会模拟真实的IO操作\n"
+                    "- 每个任务需要0.5-2秒的处理时间\n"
+                    "- 总共需要处理10个任务\n"
+                    "- 可以随时停止正在运行的任务\n"
+                    "- 界面会保持响应，不会卡顿\n"
+                    "\n"
+                    "准备开始处理...",
+                    read_only=True,
+                    show_line_numbers=True,
+                    id="log-area"
+                )
+            
+            # 控制面板 - 占用较小空间
+            with Container(classes="controls-container"):
+                yield Static("🎮 控制面板", classes="status-text")
+                
+                # 进度条容器
+                with Container(classes="progress-container"):
+                    yield Static("处理进度:", id="progress-label")
+                    yield ProgressBar(total=100, show_eta=False, id="progress-bar")
+                
+                # 按钮组
+                with Horizontal(classes="button-group"):
+                    yield Button(
+                        "🚀 开始处理",
+                        variant="success",
+                        id="start-button"
+                    )
+                    yield Button(
+                        "🛑 停止处理", 
+                        variant="error",
+                        id="stop-button"
+                    )
+                    yield Button(
+                        "🗑️  清空日志",
+                        variant="warning", 
+                        id="clear-button"
+                    )
+        
+        yield Footer()
+    
+    def on_mount(self) -> None:
+        """应用启动时的初始化"""
+        self.add_log("🔧 系统初始化完成")
+        self.add_log("💡 提示: 业务处理模拟了IO密集型操作，可能需要较长时间")
+        self.add_log("⚡ 界面在处理期间保持响应，您可以随时停止处理")
+        self.add_log("📊 TextArea 已调整为更大尺寸，可显示更多日志行")
+        
+        # 设置初始按钮状态
+        self.update_button_states(False)
+    
+    def add_log(self, message: str) -> None:
+        """
+        添加日志到 TextArea
+        
+        这个方法被业务处理器回调调用，实现日志的实时更新
+        
+        Args:
+            message: 要添加的日志消息
+        """
+        try:
+            log_area = self.query_one("#log-area", TextArea)
+            
+            # 在末尾添加新日志
+            current_text = log_area.text
+            new_text = current_text + message + "\n"
+            log_area.load_text(new_text)
+            
+            # 自动滚动到底部，确保能看到最新的日志
+            log_area.scroll_end()
+            
+        except Exception as e:
+            # 如果 UI 更新失败，记录到应用日志
+            log(f"更新日志 UI 失败: {e}")
+    
+    def update_progress(self, progress: int) -> None:
+        """
+        更新进度条
+        
+        Args:
+            progress: 进度百分比 (0-100)
+        """
+        try:
+            progress_bar = self.query_one("#progress-bar", ProgressBar)
+            progress_bar.progress = progress
+            
+            # 更新进度标签
+            progress_label = self.query_one("#progress-label", Static)
+            if progress > 0:
+                progress_label.update(f"处理进度: {progress}%")
+            else:
+                progress_label.update("处理进度:")
+                
+        except Exception as e:
+            log(f"更新进度 UI 失败: {e}")
+    
+    def update_button_states(self, is_running: bool) -> None:
+        """
+        更新按钮状态
+        
+        Args:
+            is_running: 是否正在运行业务处理
+        """
+        try:
+            start_button = self.query_one("#start-button", Button)
+            stop_button = self.query_one("#stop-button", Button)
+            
+            # 运行时禁用开始按钮，启用停止按钮
+            start_button.disabled = is_running
+            stop_button.disabled = not is_running
+            
+            # 更新按钮文本和样式
+            if is_running:
+                start_button.label = "⏳ 处理中..."
+                stop_button.label = "🛑 停止处理"
+            else:
+                start_button.label = "🚀 开始处理"
+                stop_button.label = "⏸️  已停止"
+                
+        except Exception as e:
+            log(f"更新按钮状态失败: {e}")
+    
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        """处理按钮点击事件"""
+        
+        button_id = event.button.id
+        
+        if button_id == "start-button":
+            # 开始业务处理
+            if not self.business_processor.is_running:
+                self.add_log("👤 用户点击开始处理按钮")
+                self.update_button_states(True)
+                
+                # 使用 Textual 的 Worker 在后台运行业务处理
+                # Worker 确保长时间运行的任务不会阻塞 UI
+                self.current_worker = self.run_worker(
+                    self.business_processor.start_processing(),
+                    exclusive=True,  # 同时只能运行一个业务处理
+                    description="业务处理"
+                )
+
+        elif button_id == "stop-button":
+            # 停止业务处理
+            if self.business_processor.is_running:
+                self.add_log("👤 用户点击停止处理按钮")
+                self.business_processor.stop_processing()
+                
+                # 如果有活动的 Worker，尝试取消它
+                if self.current_worker and not self.current_worker.is_finished:
+                    self.current_worker.cancel()
+        
+        elif button_id == "clear-button":
+            # 清空日志
+            try:
+                log_area = self.query_one("#log-area", TextArea)
+                log_area.load_text("=== 日志已清空 ===\n准备接收新的日志信息...\n")
+                self.add_log("👤 用户清空了日志")
+            except Exception as e:
+                log(f"清空日志失败: {e}")
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        """当 Worker 状态改变时被调用"""
+        if event.worker.is_finished:
+            self.add_log("🔧 业务处理 Worker 已结束")
+            self.update_button_states(False)
+            self.current_worker = None
+
+    def on_unmount(self) -> None:
+        """应用关闭时的清理工作"""
+        if self.business_processor.is_running:
+            self.business_processor.stop_processing()
+        
+        if self.current_worker and not self.current_worker.is_finished:
+            self.current_worker.cancel()
+
+if __name__ == "__main__":
+    """
+    应用程序入口点
+    
+    运行这个脚本将启动一个全屏的 TUI 应用，展示：
+    - 更大的实时日志显示区域（至少能显示10+行）
+    - 异步业务处理
+    - 进度跟踪
+    - 用户交互控制
+    """
+    app = AsyncBusinessApp()
+    app.run()
