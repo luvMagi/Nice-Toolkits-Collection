@@ -1,0 +1,78 @@
+?start: expr
+
+?expr: or_expr
+
+?or_expr: and_expr
+        | or_expr OR and_expr   -> or_op
+
+?and_expr: not_expr
+         | and_expr AND not_expr -> and_op
+
+?not_expr: NOT not_expr         -> not_op
+         | compare
+
+?compare: sum
+        | sum "=" sum           -> eq
+        | sum "!=" sum          -> ne
+        | sum "<>" sum          -> ne
+        | sum "<=" sum          -> le
+        | sum "<"  sum          -> lt
+        | sum ">=" sum          -> ge
+        | sum ">"  sum          -> gt
+
+?sum: term
+    | sum "+" term              -> add
+    | sum "-" term              -> sub
+
+?term: power
+     | term "*" power           -> mul
+     | term "/" power           -> div
+     | term "%" power           -> mod
+
+?power: unary
+      | power "^" unary         -> pow
+
+?unary: primary
+      | "-" unary               -> neg
+      | "+" unary               -> pos
+
+?primary: literal
+        | variable
+        | function_call
+        | "(" expr ")"
+
+?literal: NUMBER                -> number
+        | STRING                -> string
+
+// 变量/字段占位符：按需要增删
+?variable: DOLLAR_FIELD
+         | DOLLAR_SIMPLE
+         | NAME                 -> name_ref
+
+// 函数：FUNC(arg1, arg2, ...,)
+// 允许空参和尾随逗号
+function_call: NAME "(" [expr ("," expr)* [","]] ")"
+
+// tokens
+DOLLAR_FIELD: "$" /[FPV]/ "{" NAME ("." NAME)* "}"
+DOLLAR_SIMPLE: "$" NAME
+
+NAME: CNAME
+
+// 常用导入
+%import common.CNAME
+%import common.SIGNED_NUMBER -> NUMBER
+%import common.WS_INLINE
+%ignore WS_INLINE
+
+// 字符串：双引号+转义
+STRING: "\"" ( /[^"\\]/ | "\\\\" | "\\\"" )* "\""
+
+// 注释（可选）
+COMMENT: /--[^\n]*/
+%ignore COMMENT
+
+// 逻辑关键字大小写不敏感
+AND: /(AND|and|And)/
+OR:  /(OR|or|Or)/
+NOT: /(NOT|not|Not)/
