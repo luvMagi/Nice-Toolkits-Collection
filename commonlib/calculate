@@ -1,0 +1,130 @@
+from itertools import combinations, product
+
+def find_calculation_logic(numbers, target_result):
+“””
+找出使用给定数字和加减运算符达到目标结果的所有可能运算逻辑
+
+```
+参数:
+numbers: 6个数字的列表
+target_result: 目标结果
+"""
+all_solutions = {}
+
+# 从使用2个数字到使用6个数字
+for num_count in range(2, 7):
+    solutions = []
+    
+    # 获取所有可能的数字组合
+    for selected_numbers in combinations(numbers, num_count):
+        # 对于每个组合，尝试所有可能的运算符组合
+        # 第一个数字前面不需要运算符，所以需要 num_count-1 个运算符
+        for operators in product(['+', '-'], repeat=num_count-1):
+            # 计算表达式的值
+            expression = str(selected_numbers[0])
+            result = selected_numbers[0]
+            
+            for i, op in enumerate(operators):
+                expression += f" {op} {selected_numbers[i+1]}"
+                if op == '+':
+                    result += selected_numbers[i+1]
+                else:  # op == '-'
+                    result -= selected_numbers[i+1]
+            
+            # 如果结果匹配目标值，保存这个解决方案
+            if result == target_result:
+                solutions.append({
+                    'expression': expression,
+                    'numbers_used': selected_numbers,
+                    'operators': operators,
+                    'result': result
+                })
+    
+    all_solutions[f"{num_count}个数字"] = solutions
+
+return all_solutions
+```
+
+def print_solutions(solutions, target_result):
+“””
+格式化打印所有解决方案
+“””
+print(f”目标结果: {target_result}”)
+print(”=” * 50)
+
+```
+total_solutions = 0
+for category, sols in solutions.items():
+    print(f"\n【{category}的运算】")
+    if sols:
+        for i, sol in enumerate(sols, 1):
+            print(f"  方案{i}: {sol['expression']} = {sol['result']}")
+        print(f"  小计: {len(sols)} 种方案")
+        total_solutions += len(sols)
+    else:
+        print("  无解决方案")
+
+print(f"\n总计找到 {total_solutions} 种解决方案")
+```
+
+def analyze_specific_case(numbers, target_result):
+“””
+分析具体案例的详细信息
+“””
+print(f”分析数字 {numbers} 达到目标 {target_result} 的所有可能方案:”)
+print(”=” * 60)
+
+```
+solutions = find_calculation_logic(numbers, target_result)
+print_solutions(solutions, target_result)
+
+return solutions
+```
+
+# 示例使用
+
+if **name** == “**main**”:
+# 示例1: 使用数字 [10, 5, 3, 8, 2, 7] 达到目标 20
+print(“示例1:”)
+example_numbers1 = [10, 5, 3, 8, 2, 7]
+example_target1 = 20
+solutions1 = analyze_specific_case(example_numbers1, example_target1)
+
+```
+print("\n" + "="*80 + "\n")
+
+# 示例2: 使用数字 [15, 12, 8, 4, 6, 9] 达到目标 66
+print("示例2:")
+example_numbers2 = [15, 12, 8, 4, 6, 9]
+example_target2 = 66
+solutions2 = analyze_specific_case(example_numbers2, example_target2)
+```
+
+# 交互式函数，方便您直接使用
+
+def solve_custom_problem():
+“””
+交互式解决自定义问题
+“””
+print(“请输入您的问题:”)
+
+```
+# 获取用户输入
+numbers_input = input("请输入6个数字，用逗号分隔 (例如: 10,5,3,8,2,7): ")
+numbers = [int(x.strip()) for x in numbers_input.split(',')]
+
+if len(numbers) != 6:
+    print(f"错误: 需要输入6个数字，您输入了{len(numbers)}个")
+    return
+
+target = int(input("请输入目标结果: "))
+
+print(f"\n正在分析数字 {numbers} 达到目标 {target} 的方案...")
+solutions = analyze_specific_case(numbers, target)
+
+return solutions
+```
+
+# 取消下面的注释来运行交互式版本
+
+# solve_custom_problem()
