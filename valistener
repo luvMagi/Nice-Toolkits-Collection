@@ -1,0 +1,71 @@
+https://github.com/luvMagi/Nice-Toolkits-Collection
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=11">
+<title>AX ChangeViewArea → VBScript → JS 同步示例</title>
+<style>
+  body { font-family: sans-serif; }
+  pre { background:#f5f5f5; padding:8px; }
+</style>
+<script type="text/javascript">
+// ---- JS 侧：要同步的对象 & 接收函数 ----
+window.jsImage = { view: {left:0, top:0, right:0, bottom:0} };
+
+// IE 下没有打开 F12 的话可能没有 console，这里兜底一下
+if (!window.console) { window.console = { log: function(){}, error:function(){} }; }
+
+function updateJsImage(left, top, right, bottom) {
+  // 同步视图参数
+  jsImage.view = {left: left, top: top, right: right, bottom: bottom};
+  console.log("JS synced:", jsImage.view);
+
+  // 这里写你的后续逻辑，比如把区域渲染到 <pre> 里
+  var out = document.getElementById("out");
+  out.textContent = "ChangeViewArea → " +
+    "L:"+left+" T:"+top+" R:"+right+" B:"+bottom +
+    "\njsImage.view = " + JSON.stringify(jsImage.view);
+}
+</script>
+</head>
+<body>
+<h3>ActiveX ChangeViewArea 事件（VBScript 接 → 调 JS）</h3>
+
+<object id="ImgAX"
+        classid="clsid:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+        width="640" height="420">
+  <!-- 根据你的控件文档添加所需参数 -->
+  <param name="EnableEvents" value="true">
+  <!-- 有些控件还需要 NotifyOnChange / InteractionMode 等 -->
+</object>
+
+<!-- VBScript：事件过程名 = <控件ID>_<事件名>。大小写不敏感，但事件名不要乱改、不要多加“event” -->
+<script language="vbscript">
+' 当视图发生变化（缩放/平移）时由控件触发
+Sub ImgAX_ChangeViewArea(left, top, right, bottom)
+    ' 演示：弹窗 + 调 JS
+    ' MsgBox "CVA fired: " & left & "," & top & "," & right & "," & bottom
+
+    ' 直接调用同页 JS 的全局函数（建议用 window.前缀更直观）
+    On Error Resume Next
+    Call window.updateJsImage(left, top, right, bottom)
+    If Err.Number <> 0 Then
+        ' 若调用失败（例如函数名写错），可简单提示
+        ' 注意：生产环境可换成更稳妥的日志上报
+        MsgBox "调用 JS 失败: " & Err.Description
+        Err.Clear
+    End If
+End Sub
+</script>
+
+<!-- 为了测试方便，放两个按钮去调用控件的缩放方法（把方法名改成你控件的） -->
+<p>
+  <button onclick="try{ ImgAX.ZoomIn(); }catch(e){ console.error(e); }">Zoom In</button>
+  <button onclick="try{ ImgAX.ZoomOut(); }catch(e){ console.error(e); }">Zoom Out</button>
+</p>
+
+<pre id="out">等待事件…（点击 Zoom 按钮或用鼠标/滚轮让控件真正发生视图变化）</pre>
+
+</body>
+</html>
