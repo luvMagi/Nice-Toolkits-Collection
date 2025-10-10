@@ -1,0 +1,231 @@
+import os
+import shutil
+from pathlib import Path
+import xlwings as xw
+from datetime import datetime
+
+class RevampManager:
+“”“设计书批量修改管理工具”””
+
+```
+def __init__(self, onedrive_path, workspace_path, target_filename_pattern):
+    """
+    初始化管理器
+    
+    Args:
+        onedrive_path: OneDrive源文件路径
+        workspace_path: 本地工作区路径
+        target_filename_pattern: 目标文件名模式（支持通配符）
+    """
+    self.onedrive_path = Path(onedrive_path)
+    self.workspace_path = Path(workspace_path)
+    self.target_pattern = target_filename_pattern
+    
+    # 创建备份和输出文件夹
+    self.backup_folder = self.workspace_path / "改修前_backup"
+    self.output_folder = self.workspace_path / "改修后_output"
+    self.backup_folder.mkdir(parents=True, exist_ok=True)
+    self.output_folder.mkdir(parents=True, exist_ok=True)
+    
+    self.processed_files = []
+
+def copy_from_onedrive(self):
+    """第一步：从OneDrive复制文件到本地工作区"""
+    print(f"\n{'='*60}")
+    print("步骤 1: 从 OneDrive 复制文件到工作区")
+    print(f"{'='*60}")
+    
+    if not self.onedrive_path.exists():
+        print(f"❌ 错误: OneDrive路径不存在: {self.onedrive_path}")
+        return False
+    
+    try:
+        # 复制整个目录结构
+        if self.onedrive_path.is_dir():
+            shutil.copytree(self.onedrive_path, self.workspace_path, dirs_exist_ok=True)
+            print(f"✓ 已复制文件夹: {self.onedrive_path} -> {self.workspace_path}")
+        else:
+            shutil.copy2(self.onedrive_path, self.workspace_path)
+            print(f"✓ 已复制文件: {self.onedrive_path.name}")
+        
+        return True
+    except Exception as e:
+        print(f"❌ 复制失败: {e}")
+        return False
+
+def find_target_files(self):
+    """第二步：遍历工作区查找目标文件"""
+    print(f"\n{'='*60}")
+    print("步骤 2: 查找目标文件")
+    print(f"{'='*60}")
+    print(f"搜索模式: {self.target_pattern}")
+    print(f"搜索路径: {self.workspace_path}")
+    
+    target_files = []
+    
+    # 遍历工作区
+    for root, dirs, files in os.walk(self.workspace_path):
+        # 跳过备份和输出文件夹
+        if "改修前_backup" in root or "改修后_output" in root:
+            continue
+        
+        for file in files:
+            # 检查是否为Excel文件且符合命名模式
+            if self._match_pattern(file):
+                file_path = Path(root) / file
+                relative_path = file_path.relative_to(self.workspace_path)
+                target_files.append((file_path, relative_path))
+    
+    print(f"\n找到 {len(target_files)} 个目标文件:")
+    for i, (full_path, rel_path) in enumerate(target_files, 1):
+        print(f"  {i}. {rel_path}")
+    
+    return target_files
+
+def _match_pattern(self, filename):
+    """检查文件名是否符合模式"""
+    # 检查Excel文件扩展名
+    if not filename.lower().endswith(('.xlsx', '.xlsm', '.xls')):
+        return False
+    
+    # 简单的通配符匹配
+    if '*' in self.target_pattern:
+        pattern_parts = self.target_pattern.split('*')
+        return all(part in filename for part in pattern_parts if part)
+    else:
+        return self.target_pattern in filename
+
+def backup_and_process(self, target_files):
+    """第三步：备份并处理文件"""
+    print(f"\n{'='*60}")
+    print("步骤 3: 备份并处理文件")
+    print(f"{'='*60}")
+    
+    for full_path, relative_path in target_files:
+        try:
+            print(f"\n处理文件: {relative_path}")
+            
+            # 创建备份路径（保持相对路径结构）
+            backup_path = self.backup_folder / relative_path
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 备份原文件
+            shutil.copy2(full_path, backup_path)
+            print(f"  ✓ 已备份到: {backup_path.relative_to(self.workspace_path)}")
+            
+            # 创建输出路径（保持相对路径结构）
+            output_path = self.output_folder / relative_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 使用xlwings处理文件
+            self._process_excel(full_path, output_path)
+            
+            self.processed_files.append({
+                'original': str(relative_path),
+                'backup': str(backup_path.relative_to(self.workspace_path)),
+                'output': str(output_path.relative_to(self.workspace_path)),
+                'status': 'success',
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+            
+        except Exception as e:
+            print(f"  ❌ 处理失败: {e}")
+            self.processed_files.append({
+                'original': str(relative_path),
+                'status': 'failed',
+                'error': str(e),
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+def _process_excel(self, input_path, output_path):
+    """使用xlwings处理Excel文件"""
+    app = xw.App(visible=False)
+    try:
+        # 打开文件
+        wb = app.books.open(input_path)
+        print(f"  ✓ 已打开文件")
+        
+        # 这里添加你的具体修改逻辑
+        # 例如：修改特定单元格、调整格式等
+        # sheet = wb.sheets[0]
+        # sheet.range('A1').value = '修改后的内容'
+        
+        # 保存到输出路径
+        wb.save(output_path)
+        print(f"  ✓ 已保存到: {output_path.relative_to(self.workspace_path)}")
+        
+        wb.close()
+    finally:
+        app.quit()
+
+def print_summary(self):
+    """第四步：输出改修对象汇总"""
+    print(f"\n{'='*60}")
+    print("步骤 4: 改修对象汇总")
+    print(f"{'='*60}")
+    
+    success_count = sum(1 for f in self.processed_files if f['status'] == 'success')
+    failed_count = len(self.processed_files) - success_count
+    
+    print(f"\n总计: {len(self.processed_files)} 个文件")
+    print(f"成功: {success_count} 个")
+    print(f"失败: {failed_count} 个")
+    
+    if success_count > 0:
+        print(f"\n✓ 成功处理的文件:")
+        for item in self.processed_files:
+            if item['status'] == 'success':
+                print(f"  • {item['original']}")
+                print(f"    备份位置: {item['backup']}")
+                print(f"    输出位置: {item['output']}")
+                print(f"    处理时间: {item['time']}")
+    
+    if failed_count > 0:
+        print(f"\n❌ 失败的文件:")
+        for item in self.processed_files:
+            if item['status'] == 'failed':
+                print(f"  • {item['original']}")
+                print(f"    错误: {item['error']}")
+                print(f"    时间: {item['time']}")
+
+def run(self):
+    """执行完整的改修流程"""
+    print(f"\n{'*'*60}")
+    print("设计书批量修改工具")
+    print(f"{'*'*60}")
+    
+    # 步骤1: 从OneDrive复制
+    if not self.copy_from_onedrive():
+        print("\n❌ 流程终止: OneDrive复制失败")
+        return
+    
+    # 步骤2: 查找目标文件
+    target_files = self.find_target_files()
+    if not target_files:
+        print("\n⚠ 未找到符合条件的文件")
+        return
+    
+    # 步骤3: 备份并处理
+    self.backup_and_process(target_files)
+    
+    # 步骤4: 输出汇总
+    self.print_summary()
+    
+    print(f"\n{'*'*60}")
+    print("处理完成!")
+    print(f"{'*'*60}\n")
+```
+
+# 使用示例
+
+if **name** == “**main**”:
+# 配置参数
+onedrive_path = r”C:\Users\YourName\OneDrive\设计书”
+workspace_path = r”C:\Workspace\设计书修改”
+target_pattern = “*设计书*.xlsx”  # 支持通配符
+
+```
+# 创建管理器并运行
+manager = RevampManager(onedrive_path, workspace_path, target_pattern)
+manager.run()
+```
